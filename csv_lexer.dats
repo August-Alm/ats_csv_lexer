@@ -50,11 +50,7 @@ stringbuf = $SBF.stringbuf
  * the chosen field delimiter. Common choices are comma, semicolon or tab. 
  * The variable [cs: llstring] designates the input to be parsed. *)
 extern fun 
-lex_csv 
-( QNLIN: bool
-, DELIM: char
-, cs: llstring
-) : CSVEntries 
+lex_csv(QNLIN: bool, DELIM: char, cs: llstring): CSVEntries 
 
 (* Reading CSV data is essentially lexical, and can be implemented with a
  * simple finite state machine. We keep track of logical row number,
@@ -100,17 +96,17 @@ let
   , p: bool
   ) : CSVEntry =
   CSV_Field 
-    @{ csvRowNum = st.2->tableRow
-     , csvColNum = st.2->tableCol
-     , csvTextStart = at
-     , csvTextEnd = (st.2->textRow, st.2->textCol)
-     , csvFieldContent = entrytext
-     , csvFieldQuoted = p
-     }
-   where 
-     val entrytext = 
-       strptr2string($SBF.stringbuf_takeout_all(acc))
-   end
+  @{ csvRowNum = st.2->tableRow
+   , csvColNum = st.2->tableCol
+   , csvTextStart = at
+   , csvTextEnd = (st.2->textRow, st.2->textCol)
+   , csvFieldContent = entrytext
+   , csvFieldQuoted = p
+   }
+  where 
+    val entrytext = 
+      strptr2string($SBF.stringbuf_takeout_all(acc))
+  end
   
   fn
   mk_error 
@@ -119,12 +115,12 @@ let
   , txt: string
   ) : CSVEntry =
   CSV_FieldError 
-    @{ csvRowNum = st.2->tableRow
-     , csvColNum = st.2->tableCol
-     , csvTextStart = at
-     , csvTextEnd = (st.2->textRow, st.2->textCol)
-     , csvFieldError = txt
-     }
+  @{ csvRowNum = st.2->tableRow
+   , csvColNum = st.2->tableCol
+   , csvTextStart = at
+   , csvTextEnd = (st.2->textRow, st.2->textCol)
+   , csvFieldError = txt
+   }
 
   #define empty stream_vt_make_nil
   val NLINE = '\n'
