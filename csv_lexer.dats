@@ -13,21 +13,23 @@ staload _(*SBF*) = "libats/DATS/stringbuf.dats"
 (* ****** ****** ****** *)
 
 typedef
-CSVField = @{ csvRowNum = int
-            , csvColNum = int
-            , csvTextStart = (int, int)
-            , csvTextEnd = (int, int)
-            , csvFieldContent = string
-            , csvFieldQuoted = bool
-            } 
+CSVField = @{ 
+  csvRowNum = int,
+  csvColNum = int,
+  csvTextStart = (int, int),
+  csvTextEnd = (int, int),
+  csvFieldContent = string,
+  csvFieldQuoted = bool
+} 
 
 typedef
-CSVFieldError = @{ csvRowNum = int
-                 , csvColNum = int
-                 , csvTextStart = (int, int)
-                 , csvTextEnd = (int, int)
-                 , csvFieldError = string 
-                 }
+CSVFieldError = @{ 
+  csvRowNum = int,
+  csvColNum = int,
+  csvTextStart = (int, int),
+  csvTextEnd = (int, int),
+  csvFieldError = string 
+}
  
 datatype
 CSVEntry = CSV_Field of CSVField | CSV_FieldError of CSVFieldError
@@ -59,11 +61,12 @@ lex_csv(QNLIN: bool, DELIM: char, cs: llstring): CSVEntries
  *)
 local 
   typedef 
-  CSVState_rec = @{ tableRow = int
-                  , tableCol = int
-                  , textRow = int
-                  , textCol = int 
-                  }
+  CSVState_rec = @{ 
+    tableRow = int,
+    tableCol = int,
+    textRow = int,
+    textCol = int 
+  }
 in 
   vtypedef
   CSVState = [L: addr] (CSVState_rec@L, mfree_gc_v(L)| ptr(L))
@@ -75,11 +78,11 @@ in
   fun 
   state_init(i: int, j: int, k: int, l: int): CSVState =
   let val (pfat, pfgc| p) = ptr_alloc<CSVState_rec?>()
-  in p->tableRow := i 
-   ; p->tableCol := j 
-   ; p->textRow := k 
-   ; p->textCol := l 
-   ; (pfat, pfgc| p) 
+  in p->tableRow := i; 
+     p->tableCol := j;
+     p->textRow := k;
+     p->textCol := l;
+     (pfat, pfgc| p) 
   end
 end 
 
@@ -88,38 +91,38 @@ lex_csv(QNLIN, DELIM, cs) =
 let
   
   fn
-  mk_field
-  ( st: !CSVState >> _
-  , at: (int, int)
-  , acc: !stringbuf
-  , p: bool
+  mk_field ( 
+    st: !CSVState >> _,
+    at: (int, int),
+    acc: !stringbuf,
+    p: bool
   ) : CSVEntry =
-  CSV_Field 
-  @{ csvRowNum = st.2->tableRow
-   , csvColNum = st.2->tableCol
-   , csvTextStart = at
-   , csvTextEnd = (st.2->textRow, st.2->textCol)
-   , csvFieldContent = entrytext
-   , csvFieldQuoted = p
-   }
+  CSV_Field @{ 
+    csvRowNum = st.2->tableRow,
+    csvColNum = st.2->tableCol,
+    csvTextStart = at,
+    csvTextEnd = (st.2->textRow, st.2->textCol),
+    csvFieldContent = entrytext,
+    csvFieldQuoted = p
+  }
   where 
     val entrytext = 
       strptr2string($SBF.stringbuf_takeout_all(acc))
   end
   
   fn
-  mk_error 
-  ( st: !CSVState >> _
-  , at: (int, int)
-  , txt: string
+  mk_error ( 
+    st: !CSVState >> _,
+    at: (int, int),
+    txt: string
   ) : CSVEntry =
-  CSV_FieldError 
-  @{ csvRowNum = st.2->tableRow
-   , csvColNum = st.2->tableCol
-   , csvTextStart = at
-   , csvTextEnd = (st.2->textRow, st.2->textCol)
-   , csvFieldError = txt
-   }
+  CSV_FieldError @{ 
+    csvRowNum = st.2->tableRow,
+    csvColNum = st.2->tableCol,
+    csvTextStart = at,
+    csvTextEnd = (st.2->textRow, st.2->textCol),
+    csvFieldError = txt
+  }
   
   (* Some definitions to ease up notation. *)
   #define nil stream_vt_nil
@@ -130,25 +133,25 @@ let
   and DQUOT = '"'  
   
   fun 
-  parse_entry 
-  ( st: CSVState
-  , at: (int, int)  (* Table position at which to make entry. *)
-  , acc: stringbuf
-  , cs: llstring 
+  parse_entry (
+    st: CSVState,
+    at: (int, int),  (* Table position at which to make entry. *)
+    acc: stringbuf,
+    cs: llstring
   ) : CSVEntries =
-  $ldelay
-  ( case !cs of
+  $ldelay ( 
+    case !cs of
     | ~nil() => 
-      if $SBF.stringbuf_get_size(acc) = i2sz(0) then 
-        ( $SBF.stringbuf_free(acc)
-        ; state_free(st)
-        ; nil()
-        )
+      if $SBF.stringbuf_get_size(acc) = i2sz(0) then ( 
+        $SBF.stringbuf_free(acc);
+        state_free(st);
+        nil()
+      )
       else 
         let val field = mk_field(st, at, acc, false)
-        in $SBF.stringbuf_free(acc)
-         ; state_free(st)
-         ; field :: empty()
+        in $SBF.stringbuf_free(acc);
+           state_free(st);
+           field :: empty()
         end 
     | ~(c :: cs1) =>  
       if c = DELIM then
@@ -156,10 +159,10 @@ let
         | ~(c1 :: cs2) => 
           if c1 = DQUOT then 
             let val new_entry = mk_field(st, at, acc, false)
-                val recursive_tail = 
-                ( st.2->tableCol := st.2->tableCol + 1 
-                ; st.2->textCol := st.2->textCol + 2 
-                ; parse_string(st, (st.2->textRow, st.2->textCol), acc, cs2)
+                val recursive_tail = ( 
+                  st.2->tableCol := st.2->tableCol + 1; 
+                  st.2->textCol := st.2->textCol + 2;
+                  parse_string(st, (st.2->textRow, st.2->textCol), acc, cs2)
                 )
             in new_entry :: recursive_tail
             end
@@ -167,19 +170,19 @@ let
             let (* [cs1] needs to be recreated. *)
               val new_entry = mk_field(st, at, acc, false)
               val cs1 = stream_vt_make_cons(c1, cs2) 
-              val recursive_tail = 
-              ( st.2->tableCol := st.2->tableCol + 1  
-              ; st.2->textCol := st.2->textCol + 1 
-              ; parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs1)
+              val recursive_tail = (
+                st.2->tableCol := st.2->tableCol + 1;  
+                st.2->textCol := st.2->textCol + 1;
+                parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs1)
               )
             in new_entry :: recursive_tail
             end
         | ~nil() => 
           let val new_entry = mk_field(st, at, acc, false)
-              val recursive_tail = 
-              ( st.2->tableCol := st.2->tableCol + 1  
-              ; st.2->textCol := st.2->textCol + 1 
-              ; parse_entry(st, (st.2->textRow, st.2->textCol), acc, empty())
+              val recursive_tail = ( 
+                st.2->tableCol := st.2->tableCol + 1;  
+                st.2->textCol := st.2->textCol + 1;
+                parse_entry(st, (st.2->textRow, st.2->textCol), acc, empty())
               )
           in new_entry :: recursive_tail
           end
@@ -188,12 +191,12 @@ let
         | ~(c1 :: cs2) => 
           if c1 = NLINE then 
             let val new_entry = mk_field(st, at, acc, false)
-                val recursive_tail = 
-                ( st.2->tableCol := 1 
-                ; st.2->textCol := 1 
-                ; st.2->tableRow := st.2->tableRow + 1  
-                ; st.2->textRow := st.2->textRow + 1 
-                ; parse_entry(st, (st.2->textRow, 1), acc, cs2)
+                val recursive_tail = (
+                  st.2->tableCol := 1; 
+                  st.2->textCol := 1;
+                  st.2->tableRow := st.2->tableRow + 1;  
+                  st.2->textRow := st.2->textRow + 1;
+                  parse_entry(st, (st.2->textRow, 1), acc, cs2)
                 )
             in new_entry :: recursive_tail
             end
@@ -201,93 +204,90 @@ let
             let 
               val new_entry = mk_field(st, at, acc, false)
               val cs1 = stream_vt_make_cons(c1, cs2)
-              val recursive_tail = 
-              ( st.2->tableCol := 1 
-              ; st.2->textCol := 1 
-              ; st.2->tableRow := st.2->tableRow + 1  
-              ; st.2->textRow := st.2->textRow + 1 
-              ; parse_entry(st, (st.2->textRow, 1), acc, cs1)
+              val recursive_tail = (
+                st.2->tableCol := 1; 
+                st.2->textCol := 1;
+                st.2->tableRow := st.2->tableRow + 1; 
+                st.2->textRow := st.2->textRow + 1;
+                parse_entry(st, (st.2->textRow, 1), acc, cs1)
               )
             in new_entry :: recursive_tail
             end
         | ~nil() => 
           let 
             val new_entry = mk_field(st, at, acc, false)
-            val recursive_tail = 
-            ( st.2->tableCol := 1 
-            ; st.2->textCol := 1 
-            ; st.2->tableRow := st.2->tableRow + 1  
-            ; st.2->textRow := st.2->textRow + 1 
-            ; parse_entry(st, (st.2->textRow, 1), acc, empty())
+            val recursive_tail = (
+              st.2->tableCol := 1; 
+              st.2->textCol := 1;
+              st.2->tableRow := st.2->tableRow + 1;  
+              st.2->textRow := st.2->textRow + 1;
+              parse_entry(st, (st.2->textRow, 1), acc, empty())
             )
           in new_entry :: recursive_tail
           end
       else if c = NLINE then
         let val new_entry = mk_field(st, at, acc, false)
-            val recursive_tail = 
-            ( st.2->tableCol := 1 
-            ; st.2->textCol := 1 
-            ; st.2->tableRow := st.2->tableRow + 1  
-            ; st.2->textRow := st.2->textRow + 1  
-            ; parse_entry(st, (st.2->textRow, 1), acc, cs1)
+            val recursive_tail = (
+              st.2->tableCol := 1; 
+              st.2->textCol := 1;
+              st.2->tableRow := st.2->tableRow + 1;  
+              st.2->textRow := st.2->textRow + 1;
+              parse_entry(st, (st.2->textRow, 1), acc, cs1)
             )
         in new_entry :: recursive_tail
         end
       else if c = DQUOT then
-        if $SBF.stringbuf_get_size(acc) = i2sz(0) 
-        then ( st.2->textCol := st.2->textCol + 1 
-             ; !(parse_string(st, at, acc, cs1))
-             )
+        if $SBF.stringbuf_get_size(acc) = i2sz(0) then ( 
+          st.2->textCol := st.2->textCol + 1;
+          !(parse_string(st, at, acc, cs1))
+        )
         else 
           let val new_entry = mk_error(st, at, "Start-quote next to comma.")
-              val recursive_tail = 
-              ( st.2->textCol := st.2->textCol + 1 
-              ; parse_string(st, at, acc, cs1)
+              val recursive_tail = (
+                st.2->textCol := st.2->textCol + 1; 
+                parse_string(st, at, acc, cs1)
               )
           in new_entry :: recursive_tail
           end
       else (* When [c] is not special. *) 
         let val c = $UN.cast{charNZ}(c)
-        in ignoret($SBF.stringbuf_insert_char(acc, c)) 
-         ; st.2->textCol := st.2->textCol + 1  
-         ; !(parse_entry(st, at, acc, cs1))
-        end (* [stringbuf_insert_char: int], but [acc] is updated. *)  
-   , ( $SBF.stringbuf_free(acc)
-     ; state_free(st)
-     ; $effmask_wrt(~cs)
-     )
-   )
+        in ignoret($SBF.stringbuf_insert_char(acc, c));
+           st.2->textCol := st.2->textCol + 1;
+           !(parse_entry(st, at, acc, cs1))
+        end, (* [stringbuf_insert_char: int], but [acc] is updated. *)  
+    ($SBF.stringbuf_free(acc); state_free(st); $effmask_wrt(~cs))
+  )
   
   and
-  parse_string  
-  ( st: CSVState
-  , at: (int, int)
-  , acc: stringbuf
-  , cs: llstring
+  parse_string (
+    st: CSVState,
+    at: (int, int),
+    acc: stringbuf,
+    cs: llstring
   ) : CSVEntries = 
-  $ldelay
-  ( case !cs of
+  $ldelay (
+    case !cs of
     | ~nil() => 
       if $SBF.stringbuf_get_size(acc) = i2sz(0) then 
         let val field = mk_error(st, at, "Data ends at start-quote.")
-        in $SBF.stringbuf_free(acc)
-         ; state_free(st)
-         ; field :: empty()
+        in $SBF.stringbuf_free(acc);
+           state_free(st);
+           field :: empty()
         end
       else 
         let val field = mk_error(st, at, "Data ends inside quoted field.")
-        in $SBF.stringbuf_free(acc)
-         ; state_free(st)
-         ; field :: empty()
+        in $SBF.stringbuf_free(acc);
+           state_free(st);
+           field :: empty()
         end
     | ~(c :: cs1) =>
       if c = DQUOT then
         case !cs1 of
         | ~nil() => 
           let val field = mk_field(st, at, acc, true)
-          in $SBF.stringbuf_free(acc)
-           ; state_free(st)
-           ; field :: empty()
+          in $SBF.stringbuf_free(acc);
+             state_free(st);
+             field :: empty()
           end
         | ~(c1 :: cs2) =>
           case !cs2 of
@@ -295,50 +295,50 @@ let
             if c1 = DQUOT then
               let val cs2 = stream_vt_make_cons(c2, cs3)
                   val dquot = $UN.cast{charNZ}(DQUOT)
-              in ignoret($SBF.stringbuf_insert_char(acc, dquot))
-               ; st.2->tableCol := st.2->tableCol + 1
-               ; st.2->textCol := st.2->textCol + 1
-               ; !(parse_string(st, at, acc, cs2))
+              in ignoret($SBF.stringbuf_insert_char(acc, dquot));
+                 st.2->tableCol := st.2->tableCol + 1;
+                 st.2->textCol := st.2->textCol + 1;
+                 !(parse_string(st, at, acc, cs2))
               end
             else if (c1 = DELIM) && (c2 = DQUOT) then
               let val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail = 
-                  ( st.2->tableCol := st.2->tableCol + 2 
-                  ; st.2->textCol := st.2->textCol + 2 
-                  ; parse_string(st, (st.2->textRow, st.2->textCol), acc, cs3)
+                  val recursive_tail = (
+                    st.2->tableCol := st.2->tableCol + 2; 
+                    st.2->textCol := st.2->textCol + 2;
+                    parse_string(st, (st.2->textRow, st.2->textCol), acc, cs3)
                   )
               in new_entry :: recursive_tail
               end
             else if c1 = DELIM then
               let val cs2 = stream_vt_make_cons(c2, cs3)
                   val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail = 
-                  ( st.2->tableCol := st.2->tableCol + 1
-                  ; st.2->textCol := st.2->textCol + 2
-                  ; parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs2)
+                  val recursive_tail = (
+                    st.2->tableCol := st.2->tableCol + 1;
+                    st.2->textCol := st.2->textCol + 2;
+                    parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs2)
                   )
               in new_entry :: recursive_tail
               end
             else if c1 = NLINE then
               let val cs2 = stream_vt_make_cons(c2, cs3)
                   val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail = 
-                  ( st.2->tableCol := 1 
-                  ; st.2->textCol := 1 
-                  ; st.2->tableRow := st.2->tableRow + 1 
-                  ; st.2->textRow := st.2->textRow + 1 
-                  ; parse_entry(st, (st.2->textRow, 1), acc, cs2)
+                  val recursive_tail = (
+                    st.2->tableCol := 1; 
+                    st.2->textCol := 1;
+                    st.2->tableRow := st.2->tableRow + 1;
+                    st.2->textRow := st.2->textRow + 1;
+                    parse_entry(st, (st.2->textRow, 1), acc, cs2)
                   )
               in new_entry :: recursive_tail
               end
             else if (c1 = CARET) && (c2 = NLINE) then
               let val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail =
-                  ( st.2->tableCol := 1
-                  ; st.2->textCol := 1
-                  ; st.2->tableRow := st.2->tableRow + 1
-                  ; st.2->textRow := st.2->textRow + 1
-                  ; parse_entry(st, (st.2->textRow, 1), acc, cs3)
+                  val recursive_tail = (
+                    st.2->tableCol := 1;
+                    st.2->textCol := 1;
+                    st.2->tableRow := st.2->tableRow + 1;
+                    st.2->textRow := st.2->textRow + 1;
+                    parse_entry(st, (st.2->textRow, 1), acc, cs3)
                   )
               in new_entry :: recursive_tail
               end
@@ -346,36 +346,37 @@ let
               let val cs1 = stream_vt_make_cons(c1, stream_vt_make_cons(c2, cs3))
                   val new_entry = 
                       mk_error(st, at, "End-quote not followed by comma.")
-                  val recursive_tail =
-                  ( st.2->textCol := st.2->textCol + 1
-                  ; parse_entry(st, at, acc, cs1)
+                  val recursive_tail = (
+                    st.2->textCol := st.2->textCol + 1;
+                    parse_entry(st, at, acc, cs1);
                   )
               in new_entry :: recursive_tail
               end
           | ~nil() (* [cs2 = empty()] *) =>
             if c1 = DQUOT then
               let val dquot = $UN.cast{charNZ}(DQUOT)
-              in ignoret($SBF.stringbuf_insert_char(acc, dquot))
-               ; st.2->tableCol := st.2->tableCol + 1
-               ; st.2->textCol := st.2->textCol + 1 
-               ; !(parse_string(st, at, acc, empty()))
+              in ignoret($SBF.stringbuf_insert_char(acc, dquot));
+                 st.2->tableCol := st.2->tableCol + 1;
+                 st.2->textCol := st.2->textCol + 1;
+                 !(parse_string(st, at, acc, empty()))
               end
             else if c1 = DELIM then
               let val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail =
-                  ( st.2->tableCol := st.2->tableCol + 1
-                  ; st.2->textCol := st.2->textCol + 2
-                  ; parse_entry(st, (st.2->textRow, st.2->textCol), acc, empty())
+                  val recursive_tail = (
+                    st.2->tableCol := st.2->tableCol + 1;
+                    st.2->textCol := st.2->textCol + 2;
+                    parse_entry(st, (st.2->textRow, st.2->textCol), acc, empty())
                   )
               in new_entry :: recursive_tail
               end
             else if c1 = NLINE then
               let val new_entry = mk_field(st, at, acc, true)
-                  val recursive_tail =
-                  ( st.2->tableCol := 1 ; st.2->textCol := 1
-                  ; st.2->tableRow := st.2->tableRow + 1
-                  ; st.2->textRow := st.2->textRow + 1
-                  ; parse_entry(st, (st.2->textRow, 1), acc, empty())
+                  val recursive_tail = (
+                    st.2->tableCol := 1; 
+                    st.2->textCol := 1;
+                    st.2->tableRow := st.2->tableRow + 1;
+                    st.2->textRow := st.2->textRow + 1;
+                    parse_entry(st, (st.2->textRow, 1), acc, empty())
                   )
               in new_entry :: recursive_tail
               end
@@ -383,9 +384,9 @@ let
               let val cs1 = stream_vt_make_sing(c1)
                   val new_entry = 
                       mk_error(st, at, "End-quote not followed by comma.")
-                  val recursive_tail = 
-                  ( st.2->textCol := st.2->textCol + 1 
-                  ; parse_entry(st, at, acc, cs1)
+                  val recursive_tail = (
+                    st.2->textCol := st.2->textCol + 1; 
+                    parse_entry(st, at, acc, cs1)
                   )
               in new_entry :: recursive_tail
               end
@@ -395,66 +396,63 @@ let
           if c1 = NLINE then
             if QNLIN then
               let val nline = $UN.cast{charNZ}(NLINE)
-              in ignoret($SBF.stringbuf_insert_char(acc, nline))
-               ; st.2->textRow := st.2->textRow+1 
-               ; st.2->textCol := 1
-               ; !(parse_string(st, at, acc, cs2))
+              in ignoret($SBF.stringbuf_insert_char(acc, nline));
+                 st.2->textRow := st.2->textRow+1;
+                 st.2->textCol := 1;
+                 !(parse_string(st, at, acc, cs2))
               end
             else 
               let val new_entry = mk_error(st, at, "Newline within quoted field.")
-                  val recursive_tail =
-                  ( st.2->tableCol := 1
-                  ; st.2->textCol := 1
-                  ; st.2->tableRow := st.2->tableRow + 1
-                  ; st.2->textRow := st.2->textRow + 1
-                  ; $SBF.stringbuf_remove_all(acc)
-                  ; parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs2)
+                  val recursive_tail = (
+                    st.2->tableCol := 1;
+                    st.2->textCol := 1;
+                    st.2->tableRow := st.2->tableRow + 1;
+                    st.2->textRow := st.2->textRow + 1;
+                    $SBF.stringbuf_remove_all(acc);
+                    parse_entry(st, (st.2->textRow, st.2->textCol), acc, cs2)
                   )
                in new_entry :: recursive_tail
                end
           else
             let val cs1 = stream_vt_make_cons(c1, cs2)
                 val caret = $UN.cast{charNZ}(CARET)
-            in ignoret($SBF.stringbuf_insert_char(acc, caret))
-             ; st.2->textCol := st.2->textCol + 1
-             ; !(parse_string(st, at, acc, cs1))
+            in ignoret($SBF.stringbuf_insert_char(acc, caret));
+               st.2->textCol := st.2->textCol + 1;
+               !(parse_string(st, at, acc, cs1))
             end
         | ~nil() =>
           let val caret = $UN.cast{charNZ}(CARET)
-          in ignoret($SBF.stringbuf_insert_char(acc, caret))
-           ; st.2->textCol := st.2->textCol + 1
-           ; !(parse_string(st, at, acc, empty()))
+          in ignoret($SBF.stringbuf_insert_char(acc, caret));
+             st.2->textCol := st.2->textCol + 1;
+             !(parse_string(st, at, acc, empty()))
           end
       else if c = NLINE then
         if QNLIN then
           let val nline = $UN.cast{charNZ}(NLINE)
-          in ignoret($SBF.stringbuf_insert_char(acc, nline))
-           ; st.2->textCol := 1
-           ; st.2->textRow := st.2->textRow + 1
-           ; !(parse_string(st, at, acc, cs1))
+          in ignoret($SBF.stringbuf_insert_char(acc, nline));
+             st.2->textCol := 1;
+             st.2->textRow := st.2->textRow + 1;
+             !(parse_string(st, at, acc, cs1))
           end
         else 
           let val new_entry = mk_error(st, at, "Newline within quoted field.")
-              val recursive_tail =
-              ( st.2->tableCol := 1
-              ; st.2->textCol := 1
-              ; st.2->tableRow := st.2->tableRow + 1
-              ; st.2->textRow := st.2->textRow + 1
-              ; $SBF.stringbuf_remove_all(acc)
-              ; parse_entry(st, (st.2->textRow, 1), acc, cs1)
+              val recursive_tail = (
+                st.2->tableCol := 1;
+                st.2->textCol := 1;
+                st.2->tableRow := st.2->tableRow + 1;
+                st.2->textRow := st.2->textRow + 1;
+                $SBF.stringbuf_remove_all(acc);
+                parse_entry(st, (st.2->textRow, 1), acc, cs1)
               )
            in new_entry :: recursive_tail
            end
       else (* [c] not an interesting character. *) 
         let val cnz = $UN.cast{charNZ}(c)
-        in ignoret($SBF.stringbuf_insert_char(acc, cnz))
-         ; st.2->textCol := st.2->textCol + 1
-         ; !(parse_string(st, at, acc, cs1))
-        end
-  , ( $SBF.stringbuf_free(acc)
-    ; state_free(st)
-    ; $effmask_wrt(~cs)
-    )
+        in ignoret($SBF.stringbuf_insert_char(acc, cnz));
+           st.2->textCol := st.2->textCol + 1;
+           !(parse_string(st, at, acc, cs1))
+        end, 
+    ($SBF.stringbuf_free(acc); state_free(st); $effmask_wrt(~cs))
   )
   
   val initial_state = state_init(1, 1, 1, 1)
