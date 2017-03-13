@@ -1,4 +1,7 @@
 # ats_csv_lexer
+
+CURRENT VERSION SEGFAULTS DURING COMPILATION BUT PASSES TYPECHECKING! DEBUG IN PROGRESS.
+
 A program to parse CSV files, written in ATS (ATS2). The code makes extensive use of laziness and linear types.
 
 Compilation with 
