@@ -9,7 +9,7 @@
 (* close to arbitrarily large files however, only the size of the field   *)
 (* is a practical issue. *)
 
-// SEGFAULTS DURING COMPILATION!!! (FIX IN PROGRESS.)
+// DOES NOT PASS COMPILATION!!! (FIX IN PROGRESS.)
 
 (* ****** ****** ****** *)
 
@@ -73,41 +73,45 @@ implement {} lex_csv$DELIM() = ','
 (* ****** SECOND STAGE PARSER ****** *)
 
 (* The second stage parser essentially collects the output of the first 
- * first stage parser [csv_lexer] into a tabular format, while also checking
+ * stage parser [csv_lexer] into a tabular format, while also checking
  * for "global" errors in the intput data, such as unequal number of columns 
  * in each row.
  *)
-(* The following type differs from [CSVEntries] in that it is not lazy. *)
-vtypedef CSVRow = List0_vt(CSVEntry)
+
+(* Templates do not play well with dependent types, so rather than use the
+ * dependent type 
+ *   List0_vt(a) = [n: int| n >= 0] list_vt(a, n)
+ * in a definition, we use it as an "assumption" (which is "reassumed" when
+ * needed) on an abstract definition.
+ *
+ * The (assumed) type [CSVRow] differs from [CSVEntries] in that it is not lazy. 
+ *)
+absvtype CSVRow 
+local assume CSVRow = List0_vt(CSVEntry) in (* nothing *) end
 
 vtypedef CSVTable = stream_vt(CSVRow)        
 
 (* Second stage parsing records more detailed error data. *)
 datatype CSVError = 
   | Incorrect_Row of @{ 
-      csvRow          = int,
+      csvRow = int,
       csvColsExpected = int,
-      csvColsActual   = int,
-      csvEntries       = List0(CSVEntry) (* Not linear! *)
+      csvColsActual = int,
+      csvEntries = List0(CSVEntry) (* Not linear! *)
     } 
   | Blank_Line of @{ 
-      csvRow          = int,
+      csvRow = int,
       csvColsExpected = int,
-      csvColsActual   = int,
-      csvField        = CSVField
+      csvColsActual = int,
+      csvField = CSVField
     } 
   | Field_Error of @{ 
       csvEntry = CSVEntry 
     } 
-  | DuplicateHeader of @{ 
-      csvColsExpected = int,
-      csvHeaderSerial = int,
-      csvDuplicate    = string
-    } 
   | No_Data of () 
 
-vtypedef CSVErrors = List0_vt(CSVError)
-
+absvtype CSVErrors
+local assume CSVErrors = List0_vt(CSVError) in (* nothing *) end
 (* The [Either] datatype constructor, familiar to all Haskell programmers, 
  * is not in any standard ATS library. A term of type [Either(a, b)] is either 
  * a [Left] value (an [a]) or a [Right] value (a [b]). We implement the
@@ -118,15 +122,32 @@ vtypedef CSVErrors = List0_vt(CSVError)
  *)
 vtypedef CSVResult = stream_vt(Either(CSVErrors, CSVRow))
 
+(* "csv_lib.hats" makes use of a template [extfree] to free [Left] and [Right]
+ * values.
+ *)
+implement extfree<CSVErrors>(errs) = list_vt_free(errs)
+  where reassume CSVErrors end (* [= List0_vt(CSVError)] *)
+
+implement extfree<CSVRow>(r) = list_vt_free(r)  
+  where reassume CSVRow end (* [= List0_vt(CSVEntry)] *)
+
+implement extfree<Either(CSVErrors, CSVRow)>(z) = 
+  case z of
+  | ~Left(errs) => extfree<CSVErrors>(errs)
+  | ~Right(r) => extfree<CSVRow>(r)
+
+(* Our second stage parser: *)
 extern fun {} parse_csv(cs: llstring): CSVResult
 
 (* From a [CSVResult] one can filter/project out to only the [Right] or to
  * the [Left] values. In practice one might use [csv_table] (below) directly,
  * rather than [csv_parser].
  *)
-fun {} csv_table(cs: llstring): CSVTable = map_right(parse_csv(cs)) 
+fun {} csv_table(cs: llstring): CSVTable = map_right(parse_csv(cs))
+  where reassume CSVRow reassume CSVErrors end
 
 fun{} csv_errors(cs: llstring): stream_vt(CSVErrors) = map_left(parse_csv(cs))
+  where reassume CSVRow reassume CSVErrors end
 
 (* ****** IMPLEMENT [csv_lexer] ****** *)
 
@@ -534,7 +555,7 @@ in
   result
 end (* of [implement lex_csv] *)
 
-(* ****** IMPLEMENT [csv_parser] ****** *)
+(* ****** IMPLEMENTATION OF [csv_parser] ****** *)
 
 (* A function for later grouping into tabular format based on row number. *)
 fn {} eq_csvRowNum(e: CSVEntry): (CSVEntry -<cloref> bool) = 
@@ -552,14 +573,15 @@ fn {} eq_csvRowNum(e: CSVEntry): (CSVEntry -<cloref> bool) =
     let val n = f.csvRowNum and n1 = f1.csvRowNum in n = n1 
     end
 
-(* The function [stream_vt_group_by] is implemented in "csv_lib.hats". If 
- * extra error checking of the second stage parsing is thought irrelevant,
+(* The function [stream_vt_group_by] is implemented in "csv_lib.hats". If  
+ * the extra error checking of the second stage parsing is thought irrelevant,
  * then one may consider using [lex_csv_tabular] (below) as the final 
  * parsing. This function has somewhat better performance than the complete 
  * second stage parser [csv_parser].
  *)
 fun {} lex_csv_tabular(cs: llstring): CSVTable = 
   stream_vt_group_by(lex_csv(cs), eq_csvRowNum)
+  where reassume CSVRow end
 
 (* The implementation of [csv_parser] is as a composite of [lex_csv_tabular]
  * and a function [validate] which checks for errors and divides output into 
@@ -568,27 +590,32 @@ fun {} lex_csv_tabular(cs: llstring): CSVTable =
 extern fun {} validate(rs: CSVTable): CSVResult
 
 implement {} parse_csv(cs) = validate(lex_csv_tabular(cs))
+  where reassume CSVRow end
 
 (* The rest of this section is the implementation of [validate]. *)
 extern fun {} current_length(): int
 
 extern fun {} extract_errs(r: CSVRow): Either(CSVErrors, CSVRow)
 
-implement {} validate(rs: CSVTable): CSVResult =
-  $ldelay(
-    case !rs of
-    | ~nil() => let
-        val nodata = list_vt_make_sing(No_Data()): CSVErrors
-      in Left(nodata) :: empty()
-      end
-    | ~stream_vt_cons(r, rs1) => let
-        val length_r = list_vt_length(r)
-        implement {} current_length() = length_r
-      in extract_errs(r) :: stream_vt_usermap(rs1, extract_errs)
-      end
-    ,
-    ~rs
-  )
+implement {} validate(rs: CSVTable): CSVResult = let
+    reassume CSVRow
+    reassume CSVErrors
+  in
+    $ldelay(
+      case !rs of
+      | ~nil() => let
+          val nodata = list_vt_make_sing<CSVError>(No_Data())
+        in Left(nodata) :: empty()
+        end
+      | ~stream_vt_cons(r, rs1) => let 
+          val length_r = list_vt_length(r)
+          implement {} current_length() = length_r
+        in extract_errs(r) :: stream_vt_usermap(rs1, extract_errs)
+        end
+      ,
+      ~rs
+    )
+  end
 
 (* Implementation of [extract_errs]: *)
 local
@@ -606,68 +633,91 @@ local
   
   fn {} convert(e: CSVEntry): CSVError = Field_Error @{csvField = e}
   
+  (* The functions [list_vt_head_opt] ("safe head") is implemented 
+   * in "csv_lib.hats". 
+   *)
   fun {} validate_columns(r: CSVRow): CSVErrors = let 
-    val length_r = list_vt_length(r)  
-    in if length_r = current_length() then (free(r); list_vt_nil())
-       else let 
-              val csv_row = if length_r = 0 then 0 
-                            else let 
-                                val h_opt = list_vt_head_opt(r)
-                                val e: CSVEntry = option_vt_unsome(h_opt)
-                              in case e: CSVEntry of
-                                 | CSV_Field(f) => f.csvRowNum
-                                 | CSV_FieldError(er) => er.csvRowNum 
-                              end
-              val list_r = list_vt2t(r)
-              val incorrect_row = Incorrect_Row @{
-                csvRow = csv_row,
-                csvColsExpected = current_length(),
-                csvColsActual = length_r,
-                csvEntries = list_r
-              }
-            in list_vt_sing(incorrect_row)
-            end
+      reassume CSVRow
+      reassume CSVErrors
+    in let
+        val length_r = list_vt_length(r)  
+      in if length_r = current_length() then (free(r); list_vt_nil())
+         else let 
+             val csv_row = if length_r = 0 then 0 
+                           else let 
+                               val h_opt = list_vt_head_opt<CSVEntry>(r)
+                               val- ~Some_vt(e) = h_opt
+                             in case e: CSVEntry of
+                                | CSV_Field(f) => f.csvRowNum
+                                | CSV_FieldError(er) => er.csvRowNum 
+                             end
+             val list_r = list_vt2t(r)
+             val incorrect_row = Incorrect_Row @{
+                                   csvRow = csv_row,
+                                   csvColsExpected = current_length(),
+                                   csvColsActual = length_r,
+                                   csvEntries = list_r
+                                 }
+           in list_vt_sing(incorrect_row)
+           end
+      end
     end
 in (* of local *)
   (* The functions [list_vt_head_opt] and [list_vt_usermap] are implemented
    * in "csv_lib.hats".
    *)
-  implement {} extract_errs(r) = let 
-      val (fields, errs) = list_vt_partition(r, is_field)
-      val ln = list_vt_length(fields)
-      val h_opt = list_vt_head_opt(fields)
-    in 
-      if ln = current_length() && list_vt_is_nil(errs) 
-      then (free(errs); Right(fields))
-      else if ln = 1 && is_empty_field(h_opt) then   
+  implement {} extract_errs(r) = let
+      reassume CSVRow
+      reassume CSVErrors
+    in let 
+        val (fields, errs) = list_vt_partition<CSVEntry>(r, is_field)
+        val ln = list_vt_length<CSVEntry>(fields)
+        val h_opt = list_vt_head_opt<CSVEntry>(fields)
+      in 
+        if ln = current_length() && list_vt_is_nil(errs) 
+        then (
+          option_vt_free(h_opt); 
+          free(errs); 
+          Right(fields)
+        )
+        else if ln = 1 && is_empty_field(h_opt) then   
           let val- Some_vt(e: CSVEntry) = h_opt
-          val- CSV_Field(f) = e
-          val blank = Blank_Line @{
-                        csvRow = f.csvRowNum,
-                        csvColsExpected = current_length(),
-                        csvColsActual = 1,
-                        csvField = f
-                      }
-        in (free(fields); free(errs); Left(list_vt_sing(blank)))
-        end 
-      else 
+              val- CSV_Field(f) = e
+              val blank = Blank_Line @{
+                csvRow = f.csvRowNum,
+                csvColsExpected = current_length(),
+                csvColsActual = 1,
+                csvField = f
+              }
+          in (
+            option_vt_free(h_opt); 
+            free(fields); 
+            free(errs); 
+            Left(list_vt_sing(blank))
+          )
+          end 
+        else (
+          option_vt_free(h_opt); 
           Left(list_vt_usermap(errs, convert) ** validate_columns(fields))
+        )
+      end
     end
 end (* of local *)
- 
 
 (* ****** FUNCTIONS FOR PRINTING ****** *)
 
-fun csv_table_print(rs: CSVTable): void =
+fun csv_table_print(rs: CSVTable): void = 
   let
-    fun row_print(es: CSVRow): void =
-      case es of
-      | ~list_vt_nil() => let in end
-      | ~list_vt_cons(e, es1) => 
-        let val- CSV_Field(f) = e (* OK if no [CSV_FieldErrors]. *) 
-            val s = f.csvFieldContent
-        in (print(s); print(", "); row_print(es1))
-        end
+    fun row_print(es: CSVRow): void = let
+        reassume CSVRow
+      in case es of
+         | ~list_vt_nil() => ()
+         | ~list_vt_cons(e, es1) => let 
+             val- CSV_Field(f) = e (* OK if no [CSV_FieldErrors]. *) 
+             val s = f.csvFieldContent
+           in (print(s); print(", "); row_print(es1))
+           end
+      end
   in
     case !rs of
     | ~nil() => print("\n")
