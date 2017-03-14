@@ -63,18 +63,30 @@ either_free(z: Either(a, b)): void =
 extern fun {a: vt0ype} 
 stream_vt_filter$pred(x: !a): bool
 
+extern fun {a, b: vt0ype}
+stream_vt_usermap$fopr(x: a): b
+
 fun {a, b: vt0ype}
-stream_vt_usermap (
-    xs: stream_vt(a),
-    f: a -> b
+stream_vt_usermap_aux (
+    xs: stream_vt(a)
   ) : stream_vt(b) =
   $ldelay (
     case !xs of
     | ~nil() => nil()
-    | ~(x :: xs1) => f(x) :: stream_vt_usermap(xs1, f)
+    | ~(x :: xs1) => let
+       val y = stream_vt_usermap$fopr(x)
+     in  y :: stream_vt_usermap_aux(xs1) end
     ,
     ~xs
   )
+
+fun {a, b: vt0ype}
+stream_vt_usermap (
+    xs: stream_vt(a),
+    f: a -> b
+  ) : stream_vt(b) = let
+    implement stream_vt_usermap$fopr<a, b>(x) = f(x)
+  in stream_vt_usermap_aux(xs) end
 
 fun {a: vt0ype}
 stream_vt_filter (
@@ -103,7 +115,7 @@ stream_vt_filter (
 
 fun {a, b: vt0ype}
 filter_right (
-    zs: stream_vt(INV(Either(a, b)))
+    zs: stream_vt(Either(INV(a), INV(b)))
   ) : stream_vt(Either(a, b)) = 
   let
     implement 
@@ -114,7 +126,7 @@ filter_right (
 
 fun {a, b: vt0ype}
 filter_left (
-    zs: stream_vt(INV(Either(a, b)))
+    zs: stream_vt(Either(INV(a), INV(b)))
   ) : stream_vt(Either(a, b)) = 
   let
     implement 
@@ -125,7 +137,7 @@ filter_left (
 
 fun {a, b: vt0ype}
 map_right (
-    zs: stream_vt(INV(Either(a, b)))
+    zs: stream_vt(Either(INV(a), INV(b)))
   ) : stream_vt(b) =
   let
     val ws = filter_right(zs)
@@ -141,7 +153,7 @@ map_right (
 
 fun {a, b: vt0ype}
 map_left (
-    zs: stream_vt(INV(Either(a, b)))
+    zs: stream_vt(Either(INV(a), INV(b)))
   ) : stream_vt(a) =
   let
     val ws = filter_left(zs) 
@@ -178,11 +190,13 @@ stream_vt_group_by (
     let val xs_con = !xs in
     case xs_con of
     | ~nil() => nil()
-    | @stream_vt_cons(x, xs1) => 
-      let val ex = x
-          val (ys, zs) = span(xs1, eq(x))
-          val cons = list_vt_cons(ex, ys)
-      in (free@{a}(xs_con); cons :: stream_vt_group_by(zs, eq))
+    | @stream_vt_cons(x, xs1) => let 
+        val ex = x
+        val (ys, zs) = span(xs1, eq(x))
+        val cons = list_vt_cons(ex, ys)
+      in
+        free@{a}(xs_con); 
+        cons :: stream_vt_group_by(zs, eq)
       end
     end
     ,
@@ -234,15 +248,25 @@ list_vt_partition (
     list_vt_foldright_cloref(xs, init, fopr)
   end 
 
+extern fun {a, b: t0p}
+list_vt_usermap$fopr(x: a): b
+
+fun {a, b: t0p}
+list_vt_usermap_aux(xs: List0_vt(a)): List0_vt(b) =
+  case xs of
+  | ~list_vt_nil() => list_vt_nil()
+  | ~list_vt_cons(x, xs1) => let
+      val y = list_vt_usermap$fopr(x)
+    in list_vt_cons(y, list_vt_usermap_aux(xs1)) end
+
 fun {a, b: t0p}
 list_vt_usermap (
     xs: List0_vt(a),
     f: a -> b
-  ) : List0_vt(b) =
-  case xs of
-  | ~list_vt_nil() => list_vt_nil()
-  | ~list_vt_cons(x, xs1) => list_vt_cons(f(x), list_vt_usermap(xs1, f))
-
+  ) : List0_vt(b) = let
+    implement list_vt_usermap$fopr<a, b>(x) = f(x)
+  in list_vt_usermap_aux(xs) end
+  
 fun {a: t0p}
 list_vt_head_opt(xs: !List0_vt(a)): Option_vt(a) = 
   case+ xs of
@@ -254,6 +278,12 @@ list_vt2t(xs: List0_vt(a)): List0(a) =
   case xs of
   | ~list_vt_nil() => list_nil()
   | ~list_vt_cons(x, xs1) => list_cons(x, list_vt2t(xs1))
+
+fun {a: t0p}
+list_vt_userfree(xs: List0_vt(a)): void =
+  case xs of
+  | ~list_vt_nil() => ()
+  | ~list_vt_cons(x, xs1) => list_vt_userfree(xs1)
 
 
 (* ****** IMPLEMENTATION OF [CSVState] ****** *)
