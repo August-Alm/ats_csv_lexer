@@ -9,7 +9,6 @@
 (* close to arbitrarily large files however, only the size of the field   *)
 (* is a practical issue. *)
 
-// DOES NOT PASS COMPILATION!!! (FIX IN PROGRESS.)
 
 (* ****** ****** ****** *)
 
@@ -610,7 +609,8 @@ implement {} validate(rs: CSVTable): CSVResult = let
       | ~stream_vt_cons(r, rs1) => let 
           val length_r = list_vt_length(r)
           implement {} current_length() = length_r
-        in extract_errs(r) :: stream_vt_usermap(rs1, extract_errs)
+        in extract_errs(r) :: 
+             stream_vt_usermap(rs1, lam(r1) => extract_errs(r1))
         end
       ,
       ~rs
