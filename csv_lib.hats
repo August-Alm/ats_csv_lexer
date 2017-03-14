@@ -83,7 +83,7 @@ stream_vt_usermap_aux (
 fun {a, b: vt0ype}
 stream_vt_usermap (
     xs: stream_vt(a),
-    f: a -> b
+    f: a -<cloref1> b
   ) : stream_vt(b) = let
     implement stream_vt_usermap$fopr<a, b>(x) = f(x)
   in stream_vt_usermap_aux(xs) end
@@ -143,7 +143,7 @@ map_right (
     val ws = filter_right(zs)
   
     fun {a, b: vt0ype}
-    proj_right(z: Either(a, b)): b =
+    proj_right(z: Either(a, b)):<cloref1> b =
     case- z of
     | ~Right(y) => y
     
@@ -159,7 +159,7 @@ map_left (
     val ws = filter_left(zs) 
   
     fun {a, b: vt0ype}
-    proj_left(z: Either(a, b)): a =
+    proj_left(z: Either(a, b)):<cloref1> a =
     case- z of
     | ~Left(x) => x
     
